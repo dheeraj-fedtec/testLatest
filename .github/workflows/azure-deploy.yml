@@ -1,0 +1,348 @@
+name: 🚀 Deploy testlatest to Azure
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+    inputs:
+      deploy_frontend:
+        description: 'Deploy Frontend'
+        required: true
+        default: true
+        type: boolean
+      deploy_backend:
+        description: 'Deploy Backend'
+        required: true
+        default: true
+        type: boolean
+
+env:
+  AZURE_CONTAINER_REGISTRY: "acrtestlatest.azurecr.io"
+  RESOURCE_GROUP: "rg-testlatest"
+  CONTAINER_APP_ENVIRONMENT: "env-testlatest"
+  BACKEND_CONTAINER_APP: "testlatest-backend"
+  FRONTEND_CONTAINER_APP: "testlatest-frontend"
+
+jobs:
+  # Job to detect changes and set deployment flags
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend-changed: ${{ steps.changes.outputs.backend }}
+      frontend-changed: ${{ steps.changes.outputs.frontend }}
+      deploy-backend: ${{ steps.deploy-flags.outputs.backend }}
+      deploy-frontend: ${{ steps.deploy-flags.outputs.frontend }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: Check for changes
+      uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        base: ${{ github.event.repository.default_branch }}
+        filters: |
+          backend:
+            - 'backend/**'
+          frontend:
+            - 'frontend/**'
+
+    - name: Set deployment flags
+      id: deploy-flags
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          echo "backend=${{ github.event.inputs.deploy_backend }}" >> $GITHUB_OUTPUT
+          echo "frontend=${{ github.event.inputs.deploy_frontend }}" >> $GITHUB_OUTPUT
+        else
+          echo "backend=${{ steps.changes.outputs.backend }}" >> $GITHUB_OUTPUT
+          echo "frontend=${{ steps.changes.outputs.frontend }}" >> $GITHUB_OUTPUT
+        fi
+
+  # Backend build and test job
+  backend-build:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.deploy-backend == 'true'
+    outputs:
+      image-tag: ${{ steps.image.outputs.tag }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Java 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Run backend tests
+      working-directory: ./backend
+      run: |
+        echo "Running backend tests..."
+        mvn clean test
+        echo "Running code coverage report..."
+        mvn jacoco:report
+        echo "Backend tests completed successfully"
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: backend-test-results
+        path: backend/target/surefire-reports/
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-coverage
+        path: backend/target/site/jacoco/
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Login to Azure Container Registry
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ env.AZURE_CONTAINER_REGISTRY }}
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.AZURE_CONTAINER_REGISTRY }}/testlatest-backend
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        platforms: linux/amd64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+
+    - name: Set backend image output
+      id: image
+      run: |
+        echo "AZURE_CONTAINER_REGISTRY: ${{ env.AZURE_CONTAINER_REGISTRY }}"
+        echo "GITHUB_SHA: ${{ github.sha }}"
+        echo "Meta outputs tags: ${{ steps.meta.outputs.tags }}"
+        # Extract the SHA-based tag from the metadata action output
+        TAGS="${{ steps.meta.outputs.tags }}"
+        SHA_TAG=$(echo "$TAGS" | grep -E "main-[a-f0-9]{7}" | head -1)
+        if [ -z "$SHA_TAG" ]; then
+          # Fallback to latest if SHA tag not found
+          SHA_TAG="${{ env.AZURE_CONTAINER_REGISTRY }}/testlatest-backend:latest"
+        fi
+        echo "tag=$SHA_TAG" >> $GITHUB_OUTPUT
+        echo "Generated backend image tag: $SHA_TAG"
+
+  # Frontend build and test job
+  frontend-build:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.deploy-frontend == 'true'
+    outputs:
+      image-tag: ${{ steps.image.outputs.tag }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: |
+        echo "Installing frontend dependencies..."
+        npm ci
+        echo "Dependencies installed successfully"
+
+    - name: Build frontend
+      working-directory: ./frontend
+      run: |
+        echo "Building frontend application..."
+        npm run build
+        echo "Frontend build completed successfully"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/build/
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Login to Azure Container Registry
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ env.AZURE_CONTAINER_REGISTRY }}
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.AZURE_CONTAINER_REGISTRY }}/testlatest-frontend
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        platforms: linux/amd64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+
+    - name: Set frontend image output
+      id: image
+      run: |
+        echo "AZURE_CONTAINER_REGISTRY: ${{ env.AZURE_CONTAINER_REGISTRY }}"
+        echo "GITHUB_SHA: ${{ github.sha }}"
+        echo "Meta outputs tags: ${{ steps.meta.outputs.tags }}"
+        # Extract the SHA-based tag from the metadata action output
+        TAGS="${{ steps.meta.outputs.tags }}"
+        SHA_TAG=$(echo "$TAGS" | grep -E "main-[a-f0-9]{7}" | head -1)
+        if [ -z "$SHA_TAG" ]; then
+          # Fallback to latest if SHA tag not found
+          SHA_TAG="${{ env.AZURE_CONTAINER_REGISTRY }}/testlatest-frontend:latest"
+        fi
+        echo "tag=$SHA_TAG" >> $GITHUB_OUTPUT
+        echo "Generated frontend image tag: $SHA_TAG"
+
+  # Deploy backend to Azure
+  deploy-backend:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, backend-build]
+    if: needs.detect-changes.outputs.deploy-backend == 'true' && needs.backend-build.result == 'success'
+    environment: production
+    steps:
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Debug image tag
+      run: |
+        echo "Backend image tag: '${{ needs.backend-build.outputs.image-tag }}'"
+        echo "Backend build result: ${{ needs.backend-build.result }}"
+        echo "All backend outputs: ${{ toJson(needs.backend-build.outputs) }}"
+
+    - name: Deploy backend to Azure Container Apps
+      run: |
+        # Use the specific commit tag that was just built
+        IMAGE_TAG="${{ needs.backend-build.outputs.image-tag }}"
+        # Fallback to latest if image tag is empty
+        if [ -z "$IMAGE_TAG" ]; then
+          IMAGE_TAG="${{ env.AZURE_CONTAINER_REGISTRY }}/testlatest-backend:latest"
+          echo "Warning: Using fallback latest tag"
+        fi
+        echo "Deploying backend with image: $IMAGE_TAG"
+        az containerapp update \
+          --name ${{ env.BACKEND_CONTAINER_APP }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --image "$IMAGE_TAG" \
+          --set-env-vars \
+            SPRING_PROFILES_ACTIVE=azure \
+            SPRING_DATASOURCE_URL="${{ secrets.DATABASE_URL }}" \
+            SPRING_DATASOURCE_USERNAME=postgres \
+            SPRING_DATASOURCE_PASSWORD="${{ secrets.DATABASE_PASSWORD }}"
+
+  # Deploy frontend to Azure
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, frontend-build, deploy-backend]
+    if: always() && needs.detect-changes.outputs.deploy-frontend == 'true' && needs.frontend-build.result == 'success'
+    environment: production
+    steps:
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Debug image tag
+      run: |
+        echo "Frontend image tag: '${{ needs.frontend-build.outputs.image-tag }}'"
+        echo "Frontend build result: ${{ needs.frontend-build.result }}"
+        echo "All frontend outputs: ${{ toJson(needs.frontend-build.outputs) }}"
+
+    - name: Deploy frontend to Azure Container Apps
+      run: |
+        # Use the specific commit tag that was just built
+        IMAGE_TAG="${{ needs.frontend-build.outputs.image-tag }}"
+        # Fallback to latest if image tag is empty
+        if [ -z "$IMAGE_TAG" ]; then
+          IMAGE_TAG="${{ env.AZURE_CONTAINER_REGISTRY }}/testlatest-frontend:latest"
+          echo "Warning: Using fallback latest tag"
+        fi
+        echo "Deploying frontend with image: $IMAGE_TAG"
+        az containerapp update \
+          --name ${{ env.FRONTEND_CONTAINER_APP }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --image "$IMAGE_TAG" \
+          --set-env-vars \
+            BACKEND_API_URL=https://testlatest-backend.eastus.azurecontainerapps.io
+
+  # Deployment summary
+  deployment-summary:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-backend, deploy-frontend]
+    if: always()
+    steps:
+    - name: Deployment Summary
+      run: |
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [[ "${{ needs.detect-changes.outputs.deploy-backend }}" == "true" ]]; then
+          if [[ "${{ needs.deploy-backend.result }}" == "success" ]]; then
+            echo "✅ **Backend**: Successfully deployed to https://testlatest-backend.eastus.azurecontainerapps.io" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Backend**: Deployment failed" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "⏭️ **Backend**: No changes detected, skipped deployment" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [[ "${{ needs.detect-changes.outputs.deploy-frontend }}" == "true" ]]; then
+          if [[ "${{ needs.deploy-frontend.result }}" == "success" ]]; then
+            echo "✅ **Frontend**: Successfully deployed to https://testlatest-frontend.eastus.azurecontainerapps.io" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Frontend**: Deployment failed" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "⏭️ **Frontend**: No changes detected, skipped deployment" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Build Information" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Triggered by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Workflow**: ${{ github.workflow }}" >> $GITHUB_STEP_SUMMARY 

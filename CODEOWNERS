@@ -1,0 +1,41 @@
+# CODEOWNERS file for testlatest
+# This file defines who must review changes to specific parts of the codebase
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global owners - these users will be requested for review on all PRs
+* @dheeraj-fedtec
+
+# Frontend code
+/frontend/ @dheeraj-fedtec
+
+# Backend code  
+/backend/ @dheeraj-fedtec
+
+# Infrastructure and deployment files
+/.github/ @dheeraj-fedtec
+/deploy-to-azure.sh @dheeraj-fedtec
+/azure-deploy.yml @dheeraj-fedtec
+/docker-compose.yml @dheeraj-fedtec
+/Dockerfile @dheeraj-fedtec
+
+# Configuration files
+*.json @dheeraj-fedtec
+*.yml @dheeraj-fedtec
+*.yaml @dheeraj-fedtec
+*.properties @dheeraj-fedtec
+
+# Documentation
+/README.md @dheeraj-fedtec
+/docs/ @dheeraj-fedtec
+*.md @dheeraj-fedtec
+
+# Security-sensitive files
+/.env* @dheeraj-fedtec
+/secrets/ @dheeraj-fedtec
+/**/application*.properties @dheeraj-fedtec
+/**/application*.yml @dheeraj-fedtec
+
+# Database migrations and schemas
+/**/migrations/ @dheeraj-fedtec
+/**/schema/ @dheeraj-fedtec
+/**/*.sql @dheeraj-fedtec 
