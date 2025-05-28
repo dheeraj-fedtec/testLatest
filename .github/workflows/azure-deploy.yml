@@ -75,17 +75,37 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Verify backend dependencies
+      run: |
+        echo "Checking backend directory structure..."
+        ls -la backend/
+        echo "Verifying pom.xml exists..."
+        test -f backend/pom.xml && echo "✅ pom.xml found" || echo "❌ pom.xml not found"
+
     - name: Set up Java 21
       uses: actions/setup-java@v4
       with:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
+        cache-dependency-path: backend/pom.xml
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('backend/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
 
     - name: Run backend tests
       working-directory: ./backend
       run: |
         echo "Running backend tests..."
+        echo "Java version: $(java --version)"
+        echo "Maven version: $(mvn --version)"
+        echo "Current directory: $(pwd)"
+        echo "Pom.xml exists: $(test -f pom.xml && echo 'Yes' || echo 'No')"
         mvn clean test
         echo "Running code coverage report..."
         mvn jacoco:report
@@ -162,17 +182,37 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Verify frontend dependencies
+      run: |
+        echo "Checking frontend directory structure..."
+        ls -la frontend/
+        echo "Verifying package-lock.json exists..."
+        test -f frontend/package-lock.json && echo "✅ package-lock.json found" || echo "❌ package-lock.json not found"
+
     - name: Set up Node.js 20
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
+        cache-dependency-path: 'frontend/package-lock.json'
+
+    - name: Cache npm dependencies
+      uses: actions/cache@v4
+      with:
+        path: frontend/node_modules
+        key: ${{ runner.os }}-npm-${{ hashFiles('frontend/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-
 
     - name: Install frontend dependencies
       working-directory: ./frontend
       run: |
         echo "Installing frontend dependencies..."
+        echo "Node version: $(node --version)"
+        echo "NPM version: $(npm --version)"
+        echo "Current directory: $(pwd)"
+        echo "Package.json exists: $(test -f package.json && echo 'Yes' || echo 'No')"
+        echo "Package-lock.json exists: $(test -f package-lock.json && echo 'Yes' || echo 'No')"
         npm ci
         echo "Dependencies installed successfully"
 
