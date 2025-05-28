@@ -271,7 +271,7 @@ jobs:
           --set-env-vars \
             SPRING_PROFILES_ACTIVE=azure \
             SPRING_DATASOURCE_URL="${{ secrets.DATABASE_URL }}" \
-            SPRING_DATASOURCE_USERNAME=postgres \
+            SPRING_DATASOURCE_USERNAME=citus \
             SPRING_DATASOURCE_PASSWORD="${{ secrets.DATABASE_PASSWORD }}"
 
   # Deploy frontend to Azure

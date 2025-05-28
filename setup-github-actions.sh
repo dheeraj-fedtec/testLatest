@@ -33,9 +33,14 @@ SUBSCRIPTION_ID=$(az account show --query id --output tsv)
 echo "📋 Subscription ID: $SUBSCRIPTION_ID"
 echo ""
 
-# Configuration
-RESOURCE_GROUP="rg-testlatest"
-SUBSCRIPTION="Your-Azure-Subscription"
+# Configuration - Updated to match deploy-to-azure.sh
+RESOURCE_GROUP="FTC-GGB-DEV"
+SUBSCRIPTION="FTC-GGB-Subscription"
+ACR_NAME="acrftcggbdev"
+KEY_VAULT_NAME="kv-apis-ftcggbdev"
+DB_NAME="citus"
+DB_USERNAME="citus"
+EXISTING_DB_FQDN="c-ftc-ggb-dev.ffwb6hfvooklec.postgres.cosmos.azure.com"
 
 # Set the correct subscription
 echo "🔧 Setting Azure subscription..."
@@ -55,8 +60,6 @@ echo "✅ Resource group '$RESOURCE_GROUP' found"
 echo ""
 
 # Get ACR credentials
-ACR_NAME="acrtestlatest"
-KEY_VAULT_NAME="kv-testlatest"
 echo "🐳 Getting Azure Container Registry credentials..."
 
 if ! az acr show --name $ACR_NAME --resource-group $RESOURCE_GROUP &> /dev/null; then
@@ -73,7 +76,7 @@ echo ""
 
 # Get database details
 echo "🗄️ Getting database connection details..."
-DATABASE_URL="jdbc:postgresql://acrtestlatest-pg.postgres.database.azure.com:5432/testlatest_db"
+DATABASE_URL="jdbc:postgresql://$EXISTING_DB_FQDN:5432/$DB_NAME?sslmode=require"
 
 echo "✅ Database details configured"
 echo ""
@@ -118,7 +121,7 @@ echo "   $DATABASE_URL"
 echo ""
 
 echo "5. DATABASE_USERNAME:"
-echo "   postgres"
+echo "   $DB_USERNAME"
 echo ""
 
 echo "6. DATABASE_PASSWORD:"
@@ -127,7 +130,8 @@ DB_PASSWORD=$(az keyvault secret show --vault-name $KEY_VAULT_NAME --name "datab
 if [ "$DB_PASSWORD" != "NOT_FOUND" ]; then
     echo "   $DB_PASSWORD"
 else
-    echo "   YourDatabasePassword"
+    echo "   WEtN4nI39rzeyM75"
+    echo "   (Using password from deploy script - verify this is correct)"
 fi
 echo ""
 
@@ -150,7 +154,7 @@ DATABASE_URL:
 $DATABASE_URL
 
 DATABASE_USERNAME:
-postgres
+$DB_USERNAME
 
 DATABASE_PASSWORD:
 $DB_PASSWORD
@@ -158,6 +162,8 @@ $DB_PASSWORD
 Service Principal Name: $PRINCIPAL_NAME
 Subscription ID: $SUBSCRIPTION_ID
 Resource Group: $RESOURCE_GROUP
+ACR Name: $ACR_NAME
+Key Vault Name: $KEY_VAULT_NAME
 EOF
 
 echo "💾 Secrets saved to: $SECRETS_FILE"
