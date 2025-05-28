@@ -5,8 +5,8 @@ metadata:
 data:
   # Backend Configuration
   SPRING_PROFILES_ACTIVE: "azure"
-  SPRING_DATASOURCE_URL: "jdbc:postgresql://acrtestlatest-pg.postgres.database.azure.com:5432/testlatest_db"
-  SPRING_DATASOURCE_USERNAME: "postgres"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://c-ftc-ggb-dev.ffwb6hfvooklec.postgres.cosmos.azure.com:5432/citus"
+  SPRING_DATASOURCE_USERNAME: "citus"
   SERVER_PORT: "8080"
   
   # Frontend Configuration
@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: acrtestlatest.azurecr.io/testlatest-backend:latest
+        image: acrftcggbdev.azurecr.io/testlatest-backend:latest
         ports:
         - containerPort: 8080
         env:
@@ -78,9 +78,9 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: acrtestlatest.azurecr.io/testlatest-frontend:latest
+        image: acrftcggbdev.azurecr.io/testlatest-frontend:latest
         ports:
-        - containerPort: 5173
+        - containerPort: 3000
         env:
         - name: BACKEND_API_URL
           valueFrom:
@@ -118,5 +118,5 @@ spec:
     app: frontend
   ports:
   - port: 80
-    targetPort: 5173
+    targetPort: 3000
   type: LoadBalancer 

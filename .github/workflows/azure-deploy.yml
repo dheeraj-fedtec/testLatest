@@ -21,9 +21,9 @@ on:
         type: boolean
 
 env:
-  AZURE_CONTAINER_REGISTRY: "acrtestlatest.azurecr.io"
-  RESOURCE_GROUP: "rg-testlatest"
-  CONTAINER_APP_ENVIRONMENT: "env-testlatest"
+  AZURE_CONTAINER_REGISTRY: "acrftcggbdev.azurecr.io"
+  RESOURCE_GROUP: "FTC-GGB-DEV"
+  CONTAINER_APP_ENVIRONMENT: "env-ftc-ggb-dev"
   BACKEND_CONTAINER_APP: "testlatest-backend"
   FRONTEND_CONTAINER_APP: "testlatest-frontend"
 
