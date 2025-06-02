@@ -307,6 +307,7 @@ jobs:
           --name ${{ env.FRONTEND_CONTAINER_APP }} \
           --resource-group ${{ env.RESOURCE_GROUP }} \
           --image "$IMAGE_TAG" \
+          --target-port 3000 \
           --set-env-vars \
             BACKEND_API_URL=https://testlatest-backend.jollystone-b8869f95.eastus.azurecontainerapps.io
 
