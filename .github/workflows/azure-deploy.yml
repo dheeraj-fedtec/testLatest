@@ -308,7 +308,7 @@ jobs:
           --resource-group ${{ env.RESOURCE_GROUP }} \
           --image "$IMAGE_TAG" \
           --set-env-vars \
-            BACKEND_API_URL=https://testlatest-backend.eastus.azurecontainerapps.io
+            BACKEND_API_URL=https://testlatest-backend.jollystone-b8869f95.eastus.azurecontainerapps.io
 
   # Deployment summary
   deployment-summary:

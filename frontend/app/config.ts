@@ -1,4 +1,4 @@
-// Dynamic backend URL detection for dev: tries 8080, then 5000, then env, then 8080 as fallback
+// Backend URL configuration for frontend
 
 let detectedBackendUrl: string | null = null;
 
@@ -14,22 +14,23 @@ async function checkPort(port: number): Promise<boolean> {
 export async function getBackendUrl(): Promise<string> {
   if (detectedBackendUrl) return detectedBackendUrl;
 
-  // Try 8080
-  if (await checkPort(8080)) {
-    detectedBackendUrl = 'http://localhost:8080';
-    return detectedBackendUrl;
+  // Production backend URL - this should be the correct one
+  const productionBackendUrl = 'https://testlatest-backend.jollystone-b8869f95.eastus.azurecontainerapps.io';
+
+  // If we're in a browser environment, try development ports first, then fallback to production
+  if (typeof window !== 'undefined') {
+    // Try development ports for local development
+    if (await checkPort(8080)) {
+      detectedBackendUrl = 'http://localhost:8080';
+      return detectedBackendUrl;
+    }
+    if (await checkPort(5000)) {
+      detectedBackendUrl = 'http://localhost:5000';
+      return detectedBackendUrl;
+    }
   }
-  // Try 5000
-  if (await checkPort(5000)) {
-    detectedBackendUrl = 'http://localhost:5000';
-    return detectedBackendUrl;
-  }
-  // Try env
-  if (import.meta.env.VITE_BACKEND_URL) {
-    detectedBackendUrl = import.meta.env.VITE_BACKEND_URL;
-    return detectedBackendUrl;
-  }
-  // Fallback
-  detectedBackendUrl = 'http://localhost:8080';
+  
+  // Fallback to production URL (works for both server-side and client-side)
+  detectedBackendUrl = productionBackendUrl;
   return detectedBackendUrl;
 } 
