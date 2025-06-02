@@ -1,0 +1,24 @@
+{
+    "name": "java-springboot",
+    "type": "backend",
+    "repository": "https://github.com/free-alliance/java-spring-template.git",
+    "setup": {
+        "commands": [
+            "mvn clean install",
+            "mvn spring-boot:run"
+        ],
+        "port": 8080,
+        "dependencies": {
+            "java": ">=21",
+            "maven": ">=3.8.0"
+        }
+    },
+    "frontend_integration": {
+        "cors": {
+            "allowed_origins": ["http://localhost:5173"],
+            "allowed_methods": ["GET", "POST", "PUT", "DELETE"],
+            "allowed_headers": ["*"]
+        },
+        "api_base_path": "/api"
+    }
+}

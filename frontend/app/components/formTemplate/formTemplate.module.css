@@ -1,0 +1,31 @@
+.form {
+  margin-bottom: 20px;
+}
+.form h2 {
+  margin: 0;
+}
+.form .formFields {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  grid-column-gap: 20px;
+}
+.form .formFields input, .form .formFields select, .form .formFields textarea, .form .formFields div {
+  max-width: unset;
+}
+.form .buttonGroup {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 899px) {
+  .form .formFields {
+    grid-template-columns: auto auto;
+  }
+}
+
+@media (max-width: 639px) {
+  .form .formFields {
+    grid-template-columns: auto;
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+
+/.cache
+/build
+.env
+
+# SonarQube
+sonar-token.txt
+.scannerwork/
+eslint-report.json

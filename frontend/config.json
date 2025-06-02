@@ -1,0 +1,22 @@
+{
+    "name": "react-uswds",
+    "type": "frontend",
+    "repository": "https://github.com/free-alliance/react-uswds-template.git",
+    "setup": {
+        "commands": [
+            "npm install",
+            "npm run dev"
+        ],
+        "port": 5173,
+        "dependencies": {
+            "node": ">=20.0.0",
+            "npm": ">=10.0.0"
+        }
+    },
+    "backend_integration": {
+        "api_base_url": "http://localhost:8080/api",
+        "proxy": {
+            "/api": "http://localhost:8080"
+        }
+    }
+}
